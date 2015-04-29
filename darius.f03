@@ -1,6 +1,7 @@
 PROGRAM darius
 
-	USE SCALAR, only : store_wisdom
+	USE SCALAR, only : store_wisdom, step
+	
 	
 	IMPLICIT NONE
 	
@@ -19,9 +20,11 @@ PROGRAM darius
 	   stop 1
 	end if
 	
-	
+	step = 0
 		
 	CALL PART_INIT
+	CALL PROJECT_DENSITY
+	CALL FIELDS
 
 ! 	CALL INIT_FIELDS 	! Fields are initialized
 ! 	CALL FIELDS 		! Fields are updated

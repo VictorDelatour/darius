@@ -2,6 +2,7 @@ SUBROUTINE PART_INIT
 	
 	USE DIMENSION, only: nx, ny, nz, nparticles
 	USE VECTOR, only: x, y, z, vx, vy, vz, mass
+	USE MATRIX, only: rho3d, phi3d
 	
 	IMPLICIT NONE
 	
@@ -26,6 +27,9 @@ SUBROUTINE PART_INIT
 	nx = 2**min_level
 	ny = nx
 	nz = nx
+	
+	ALLOCATE( rho3d(nx, ny, nz) )
+	ALLOCATE( phi3d(nx, ny, nz) )
 	
 
 	filename = './output_00003/part_00003.out00001'
