@@ -2,7 +2,7 @@ SUBROUTINE FIELDS
 
 	USE DIMENSION, only : nx, ny, nz, low, upp, len  ! Contains dimension-related variables
 	USE MATRIX, only : rho3d, phi3d	  ! Contains the variables rho3d and phi3d
-	USE SCALAR, only : i, j, k, gconst, at, ga, pi, first
+	USE SCALAR, only : i, j, k, gconst, at, ga, pi, store_wisdom
 	USE FFTW
 	USE VAR_MPI
 	
@@ -17,7 +17,7 @@ SUBROUTINE FIELDS
 	REAL*4, DIMENSION(:,:,:), allocatable :: tempstorage, local_data
 	REAL*8 :: temp
 	
-	INTEGER :: ierr, num_procs, my_id, fh_init, fh_rho, fh_phi, ierror, import!, first
+	INTEGER :: ierr, num_procs, my_id, fh_init, fh_rho, fh_phi, ierror, import
 	INTEGER :: status(MPI_STATUS_SIZE)
 	INTEGER :: count(1:6), count_rate, count_max
 	INTEGER, DIMENSION(3) :: sizes, subsizes, start
@@ -82,7 +82,7 @@ SUBROUTINE FIELDS
 	
 	! Defined FFTW plans, using WISDOM
 	
-	if(first /= 1) then
+	if(store_wisdom /= 1) then
 		if(my_id .eq. 0) then
 			ret = FFTW_IMPORT_WISDOM_FROM_FILENAME(C_CHAR_'wisdom_FWD.dat' // C_NULL_CHAR)
 		end if
@@ -91,7 +91,7 @@ SUBROUTINE FIELDS
 	
 	planFOR = fftw_mpi_plan_dft_3d(nx, ny, nz, data, data, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_PATIENT)
 	
-	if(first .eq. 1) then
+	if(store_wisdom .eq. 1) then
 		CALL FFTW_MPI_GATHER_WISDOM(MPI_COMM_WORLD)
 		if(my_id .eq. 0) then
 			ret = FFTW_EXPORT_WISDOM_TO_FILENAME(C_CHAR_'wisdom_FWD.dat' // C_NULL_CHAR)
@@ -101,7 +101,7 @@ SUBROUTINE FIELDS
 
 
 	
-	if(first /= 1) then
+	if(store_wisdom /= 1) then
 		if(my_id .eq. 0) then
 			ret = FFTW_IMPORT_WISDOM_FROM_FILENAME(C_CHAR_'wisdom_BWD.dat' // C_NULL_CHAR)
 		end if
@@ -110,7 +110,7 @@ SUBROUTINE FIELDS
 
 	planBACK = fftw_mpi_plan_dft_3d(nx, ny, nz, data, data, MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_PATIENT)
 	
-	if(first .eq. 1) then
+	if(store_wisdom .eq. 1) then
 		CALL FFTW_MPI_GATHER_WISDOM(MPI_COMM_WORLD)
 		if(my_id .eq. 0) then
 			ret = FFTW_EXPORT_WISDOM_TO_FILENAME(C_CHAR_'wisdom_BWD.dat' // C_NULL_CHAR)

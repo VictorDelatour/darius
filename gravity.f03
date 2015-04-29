@@ -1,4 +1,3 @@
-! To compile :  gfortran dimension.f03 vector.f03 matrix.f03 scalar.f03 write_fields.f03 fields.f03 init_fields.f03 gravity.f03 FFTW.f03 -o gravity -I/opt/local/include -lfftw3 -lm
 PROGRAM gravity
 	
 	USE DIMENSION, only : nx, ny, nz  ! Contains dimension-related variables

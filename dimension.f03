@@ -4,6 +4,7 @@ MODULE DIMENSION
 	
 	IMPLICIT NONE
 
+	INTEGER :: nparticles
 	INTEGER(C_INTPTR_T) :: nx, ny, nz
 	REAL*8 :: low, upp, len
 	
