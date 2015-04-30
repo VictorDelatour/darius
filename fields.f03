@@ -150,8 +150,9 @@ SUBROUTINE FIELDS
 	end if
 	
 	print*, fh_rho
-	print*, sizeof(subarray)/sizeof(subarray(1,1,1))
+! 	print*, sizeof(subarray)/sizeof(subarray(1,1,1))
 	print*, alloc_local
+! 	print*, sizeof(MPI_REAL8)
 	
 ! 	We alreay do it in the density projection, but always good to have it?
 	
