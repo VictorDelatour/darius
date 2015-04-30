@@ -1,7 +1,7 @@
 SUBROUTINE FIELDS
 
 	USE DIMENSION, only : nx, ny, nz, low, upp, len  ! Contains dimension-related variables
-	USE MATRIX, only : rho3d, phi3d	  ! Contains the variables rho3d and phi3d
+	USE MATRIX, only : rho3d, phi3d, gradx, grady, gradz	  ! Contains the variables rho3d and phi3d
 	USE SCALAR, only : i, j, k, gconst, at, ga, pi, store_wisdom
 	USE FFTW
 	USE VAR_MPI
@@ -26,11 +26,13 @@ SUBROUTINE FIELDS
 	INTEGER(C_INT) :: ret
 	INTEGER, DIMENSION(1) :: send, recv
 
-	TYPE(C_PTR) :: planFOR, planBACK, cdata! , cgrad_x, cgrad_y, cgrad_z
-	COMPLEX(C_DOUBLE_COMPLEX), pointer :: data(:,:,:)! , grad_x(:,:,:), grad_y(:,:,:), grad_z(:,:,:)
+	TYPE(C_PTR) :: planFOR, planBACK, cdata, cgrad_x, cgrad_y, cgrad_z
+	COMPLEX(C_DOUBLE_COMPLEX), pointer :: data(:,:,:), grad_x(:,:,:), grad_y(:,:,:), grad_z(:,:,:)
 	COMPLEX(C_DOUBLE_COMPLEX), PARAMETER :: icomplex = (0.0,1.0)
 
-
+	ALLOCATE( gradx(nx, ny, nz) )
+	ALLOCATE( grady(nx, ny, nz) )
+	ALLOCATE( gradz(nx, ny, nz) )
 
 	CALL system_clock(count(1))
 	
@@ -60,13 +62,13 @@ SUBROUTINE FIELDS
 	CALL c_f_pointer(cdata, data, [nx, ny, local_nz])
 	
 	
-! 	cgrad_x = fftw_alloc_complex(alloc_local)
-! 	cgrad_y = fftw_alloc_complex(alloc_local)
-! 	cgrad_z = fftw_alloc_complex(alloc_local)
-!
-! 	CALL c_f_pointer(cgrad_x, grad_x, [nx, ny, local_nz])
-! 	CALL c_f_pointer(cgrad_y, grad_y, [nx, ny, local_nz])
-! 	CALL c_f_pointer(cgrad_z, grad_z, [nx, ny, local_nz])
+	cgrad_x = fftw_alloc_complex(alloc_local)
+	cgrad_y = fftw_alloc_complex(alloc_local)
+	cgrad_z = fftw_alloc_complex(alloc_local)
+
+	CALL c_f_pointer(cgrad_x, grad_x, [nx, ny, local_nz])
+	CALL c_f_pointer(cgrad_y, grad_y, [nx, ny, local_nz])
+	CALL c_f_pointer(cgrad_z, grad_z, [nx, ny, local_nz])
 	
 
 	 
@@ -135,27 +137,17 @@ SUBROUTINE FIELDS
 	low = 1
 	upp = nx
 	len = upp - low
+	
+	! Bad practice, only 1/nnum_procs will do this loop once, all of them will do it twice => loose time
 		
 	if( my_id .eq. 0) then
-		
-		if(my_id.eq.0) then
-			print*, "YOU SHALL NOT PASS"
-		end if
 		
 		do i = 1, num_procs-1
 			CALL MPI_SEND(rho3d(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
 		end do
-		
-		if(my_id.eq.0) then
-			print*, "HOW DID YOU DO THAT!"
-		end if
 		 
 		data(:, :, :) = rho3d(:, :, 1:(nz/num_procs))
 		
-		if(my_id.eq.0) then
-			print*, "IS IT HERE?"
-		end if
-
 	else
 
 		ALLOCATE( local_data(nx, ny, local_nz))
@@ -181,9 +173,6 @@ SUBROUTINE FIELDS
 		print*, "WRITE RHO"
 	end if
 	
-	print*, fh_rho
-! 	print*, sizeof(subarray)/sizeof(subarray(1,1,1))
-	print*, alloc_local
 	
 ! 	We alreay do it in the density projection, but always good to have it?
 	
@@ -273,9 +262,9 @@ SUBROUTINE FIELDS
 				end if
 				
 				! Do the gradient directly here
-		! 		grad_x(i, j, k) = pos(1) * icomplex * data(i, j, k)
-! 				grad_y(i, j, k) = pos(2) * icomplex * data(i, j, k)
-! 				grad_z(i, j, k) = pos(3) * icomplex * data(i, j, k)
+				grad_x(i, j, k) = pos(1) * icomplex * data(i, j, k)
+				grad_y(i, j, k) = pos(2) * icomplex * data(i, j, k)
+				grad_z(i, j, k) = pos(3) * icomplex * data(i, j, k)
 
 			end do
 		end do
@@ -291,7 +280,7 @@ SUBROUTINE FIELDS
 	! Execute plan => Backward FFT
 	CALL fftw_mpi_execute_dft(planBACK, data, data)	
 	
-	CALL system_clock(count(5)) ! Time for Backward FFT
+
 	
 	if(my_id.eq.0) then
 		print*, "NORMALIZE PHI"
@@ -308,10 +297,28 @@ SUBROUTINE FIELDS
 	! Don't need to write the gradient to file,
 	! But you need to send it to the master process
 	! Figure out how later
-! 	CALL fftw_mpi_execute_dft(planBACK, grad_x, grad_x)
-! 	CALL fftw_mpi_execute_dft(planBACK, grad_y, grad_y)
-! 	CALL fftw_mpi_execute_dft(planBACK, grad_z, grad_z)
+	CALL fftw_mpi_execute_dft(planBACK, grad_x, grad_x)
+	CALL fftw_mpi_execute_dft(planBACK, grad_y, grad_y)
+	CALL fftw_mpi_execute_dft(planBACK, grad_z, grad_z)
 	
+	CALL system_clock(count(5)) ! Time for Backward FFT
+	
+	
+	if( my_id .eq. 0) then
+		
+		do i = 1, num_procs-1
+			CALL MPI_RECV(gradx(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, status, ierror)
+			CALL MPI_RECV(grady(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 3, MPI_COMM_WORLD, status, ierror)
+			CALL MPI_RECV(gradz(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 4, MPI_COMM_WORLD, status, ierror)
+		end do
+		
+	else
+		CALL MPI_SEND(grad_x, alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
+		CALL MPI_SEND(grad_y, alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
+		CALL MPI_SEND(grad_z, alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
+	end if
+	
+	! So now you have the gradient stored in gradx, grady, gradz
 	
 
 	
@@ -324,13 +331,15 @@ SUBROUTINE FIELDS
 	CALL MPI_FILE_CLOSE(fh_phi, ierr)
 	
 	! Add part where every slave sends back its data to the master process
+	
+	CALL system_clock(count(6), count_rate, count_max)
 
 
 	if(my_id.eq.0) then
 		print*, "WRITTEN PHI"
 	end if
 	
-	CALL system_clock(count(6), count_rate, count_max)
+	CALL system_clock(count(7), count_rate, count_max)
 	
 	
 	if(my_id.eq.0) then
