@@ -1,0 +1,12 @@
+SUBROUTINE UPDATE_PARTICLES
+	
+	USE DIMENSION, ONLY: nx, ny, nz, nparticles
+	USE VECTOR, ONLY: x, y, z, vx, vy, vz, mass
+	USE MATRIX, ONLY: rho3d, phi3d
+	
+	IMPLICIT NONE
+	
+	
+	
+	
+END SUBROUTINE UPDATE_PARTICLES
