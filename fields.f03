@@ -26,8 +26,11 @@ SUBROUTINE FIELDS
 	INTEGER(C_INT) :: ret
 	INTEGER, DIMENSION(1) :: send, recv
 
-	TYPE(C_PTR) :: planFOR, planBACK, cdata
-	COMPLEX(C_DOUBLE_COMPLEX), pointer :: data(:,:,:)
+	TYPE(C_PTR) :: planFOR, planBACK, cdata! , cgrad_x, cgrad_y, cgrad_z
+	COMPLEX(C_DOUBLE_COMPLEX), pointer :: data(:,:,:)! , grad_x(:,:,:), grad_y(:,:,:), grad_z(:,:,:)
+	COMPLEX(C_DOUBLE_COMPLEX), PARAMETER :: icomplex = (0.0,1.0)
+
+
 
 	CALL system_clock(count(1))
 	
@@ -36,6 +39,7 @@ SUBROUTINE FIELDS
 	CALL fftw_mpi_init
 	CALL MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
 	CALL MPI_COMM_SIZE(MPI_COMM_WORLD, num_procs, ierr)
+	
 	
 		
 	! Open file to store the density
@@ -50,12 +54,21 @@ SUBROUTINE FIELDS
 	alloc_local = fftw_mpi_local_size_3d(nx, ny, nz, MPI_COMM_WORLD, local_nz, local_z_offset)
 	ALLOCATE( subarray(nx, ny, local_nz) )
 	
-
 	
 	! Allocate memory
 	cdata = fftw_alloc_complex(alloc_local)
 	CALL c_f_pointer(cdata, data, [nx, ny, local_nz])
 	
+	
+! 	cgrad_x = fftw_alloc_complex(alloc_local)
+! 	cgrad_y = fftw_alloc_complex(alloc_local)
+! 	cgrad_z = fftw_alloc_complex(alloc_local)
+!
+! 	CALL c_f_pointer(cgrad_x, grad_x, [nx, ny, local_nz])
+! 	CALL c_f_pointer(cgrad_y, grad_y, [nx, ny, local_nz])
+! 	CALL c_f_pointer(cgrad_z, grad_z, [nx, ny, local_nz])
+	
+
 	 
 	! Prepare creation of subarray for parallel I/O
 	sizes = (/ nx, ny, nz /) 
@@ -74,11 +87,15 @@ SUBROUTINE FIELDS
 	CALL MPI_FILE_SET_VIEW(fh_phi, offset, MPI_DOUBLE, subarray_type, "native", MPI_INFO_NULL, ierr)
 	
 	!Value of k^2
+	! Unused
 	do i = 1, nx
 		kq(i) = ( 2*pi* (i-.5*(nx+1))/(.5*nx) ) ** 2 
 	end do
 	
 	! Defined FFTW plans, using WISDOM
+	! Should the plan be for local_nz, or for nz?
+	
+	
 	
 	if(store_wisdom /= 1) then
 		if(my_id .eq. 0) then
@@ -113,6 +130,7 @@ SUBROUTINE FIELDS
 		end if
 	end if
 	
+
 	
 	low = 1
 	upp = nx
@@ -120,13 +138,24 @@ SUBROUTINE FIELDS
 		
 	if( my_id .eq. 0) then
 		
+		if(my_id.eq.0) then
+			print*, "YOU SHALL NOT PASS"
+		end if
+		
 		do i = 1, num_procs-1
-
 			CALL MPI_SEND(rho3d(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
 		end do
+		
+		if(my_id.eq.0) then
+			print*, "HOW DID YOU DO THAT!"
+		end if
 		 
 		data(:, :, :) = rho3d(:, :, 1:(nz/num_procs))
 		
+		if(my_id.eq.0) then
+			print*, "IS IT HERE?"
+		end if
+
 	else
 
 		ALLOCATE( local_data(nx, ny, local_nz))
@@ -135,6 +164,9 @@ SUBROUTINE FIELDS
 		data = local_data ! Probably useless?
 		
 	end if
+	
+
+	
 	
 	
 	if(my_id.eq.0) then
@@ -152,7 +184,6 @@ SUBROUTINE FIELDS
 	print*, fh_rho
 ! 	print*, sizeof(subarray)/sizeof(subarray(1,1,1))
 	print*, alloc_local
-! 	print*, sizeof(MPI_REAL8)
 	
 ! 	We alreay do it in the density projection, but always good to have it?
 	
@@ -193,27 +224,46 @@ SUBROUTINE FIELDS
 	! calculate local gravitational field
 	do k = 1, local_nz
 		
-		if( 2 * (k+local_z_offset) > nz ) then
-			pos(3) = k - nz - 1
-		else
+		! Avoid doing two branches.
+		if(2 * (k+local_z_offset) <= nz ) then
 			pos(3) = k - 1
+		else
+			pos(3) = k - nz - 1
 		end if
+		
+! 		if( 2 * (k+local_z_offset) > nz ) then
+! 			pos(3) = k - nz - 1
+! 		else
+! 			pos(3) = k - 1
+! 		end if
 		
 		do j = 1, ny
 			
-			if( 2*j > ny ) then
-				pos(2) = j - ny - 1
-			else
+			if(2*j <= ny) then
 				pos(2) = j - 1
+			else 
+				pos(2) = j - ny - 1
 			end if
+			
+! 			if( 2*j > ny ) then
+! 				pos(2) = j - ny - 1
+! 			else
+! 				pos(2) = j - 1
+! 			end if
 			
 			do i = 1, nx
 				
-				if( 2*i > nx ) then
-					pos(1) = i - nx - 1
-				else
+				if(2*i <= nx) then
 					pos(1) = i - 1
+				else
+					pos(1) = i - nx - 1
 				end if
+				
+! 				if( 2*i > nx ) then
+! 					pos(1) = i - nx - 1
+! 				else
+! 					pos(1) = i - 1
+! 				end if
 
  				k2 = p * ( pos(1)**2 + pos(2)**2 + pos(3)**2 ) / (nx*nx)
 				if(k2 /= 0) then
@@ -221,6 +271,11 @@ SUBROUTINE FIELDS
 				else
 					data(i, j, k) = 0.
 				end if
+				
+				! Do the gradient directly here
+		! 		grad_x(i, j, k) = pos(1) * icomplex * data(i, j, k)
+! 				grad_y(i, j, k) = pos(2) * icomplex * data(i, j, k)
+! 				grad_z(i, j, k) = pos(3) * icomplex * data(i, j, k)
 
 			end do
 		end do
@@ -242,9 +297,23 @@ SUBROUTINE FIELDS
 		print*, "NORMALIZE PHI"
 	end if
 	
-	
 	! Normalize data
 	subarray = real(data) / (nx * ny * nz )
+	
+	if(my_id.eq.0) then
+		print*, "RETURN GRADIENT"
+	end if
+	
+	! In place inverse FFT of the gradient
+	! Don't need to write the gradient to file,
+	! But you need to send it to the master process
+	! Figure out how later
+! 	CALL fftw_mpi_execute_dft(planBACK, grad_x, grad_x)
+! 	CALL fftw_mpi_execute_dft(planBACK, grad_y, grad_y)
+! 	CALL fftw_mpi_execute_dft(planBACK, grad_z, grad_z)
+	
+	
+
 	
 	if(my_id.eq.0) then
 		print*, "WRITE PHI"
@@ -253,6 +322,8 @@ SUBROUTINE FIELDS
 	! Parallel write
 	CALL MPI_FILE_WRITE_ALL(fh_phi, subarray, alloc_local, MPI_REAL8, MPI_STATUS_IGNORE)	
 	CALL MPI_FILE_CLOSE(fh_phi, ierr)
+	
+	! Add part where every slave sends back its data to the master process
 
 
 	if(my_id.eq.0) then

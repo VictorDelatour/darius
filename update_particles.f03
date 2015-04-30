@@ -6,7 +6,13 @@ SUBROUTINE UPDATE_PARTICLES
 	
 	IMPLICIT NONE
 	
+	INTEGER :: particle
 	
+	do particle = 1, nparticles
+		
+		
+		
+	end do
 	
 	
 END SUBROUTINE UPDATE_PARTICLES
