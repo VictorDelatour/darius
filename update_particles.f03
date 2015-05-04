@@ -123,7 +123,7 @@ SUBROUTINE UPDATE_PARTICLES
 	
 	write(*,*) "Done"
 	
-	step = step + 1
+! 	step = step + 1
 	
 	
 END SUBROUTINE UPDATE_PARTICLES

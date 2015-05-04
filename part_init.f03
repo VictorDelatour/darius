@@ -3,12 +3,16 @@ SUBROUTINE PART_INIT
 	USE DIMENSION, only: nx, ny, nz, nparticles
 	USE VECTOR, only: x, y, z, vx, vy, vz, mass
 	USE MATRIX, only: rho3d, phi3d
+	USE VAR_MPI, only: num_procs, my_id
 	
 	IMPLICIT NONE
 	
 	INTEGER :: unit_part, unit_info, pos, min_level
 	CHARACTER(LEN = 128) :: filename, buffer
-	INTEGER :: wtf
+	INTEGER, DIMENSION(num_procs) :: part_per_slab
+	INTEGER, DIMENSION(:), ALLOCATABLE :: slab_position
+	
+	
 	
 	unit_info = 1
 	unit_part = 10
@@ -48,6 +52,8 @@ SUBROUTINE PART_INIT
 	ALLOCATE( vy(nparticles) )
 	ALLOCATE( vz(nparticles) )
 	ALLOCATE( mass(nparticles) )
+	
+	ALLOCATE( slab_position(nparticles) )
 
 	do pos = 1,5
     	read(unit_part) !skip
@@ -62,16 +68,30 @@ SUBROUTINE PART_INIT
 	read(unit_part) vz
 
 	read(unit_part) mass 
-
+	
+	slab_position = nint( z * (num_procs - 1) + 1  ) 
+	
 	x = x * (nx - 1) + 1.0
 	y = y * (ny - 1) + 1.0
 	z = z * (nz - 1) + 1.0
 
 	close(unit_part)
 	
-	do pos = 1, 10
-		write(*,'(a F10.5 F10.5 F10.5 e15.6)') 'Position:', x(pos), y(pos), z(pos), mass(pos)
+	part_per_slab = 0
+	
+	do pos = 1, nparticles
+		part_per_slab(slab_position(pos)) = part_per_slab(slab_position(pos)) + 1
 	end do
+	
+	
+	if (my_id .eq. 0) then
+		write(*,*) part_per_slab
+		write(*,*) sum(part_per_slab)
+	end if
+	
+! 	do pos = 1, 10
+! 		write(*,'(a F10.5 F10.5 F10.5 e15.6)') 'Position:', x(pos), y(pos), z(pos), mass(pos)
+! 	end do
 		
 	
 END SUBROUTINE PART_INIT

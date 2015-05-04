@@ -4,6 +4,8 @@ MODULE VAR_MPI
 	
 	IMPLICIT NONE
 	
+	INTEGER :: num_procs, my_id, ierr
+	
 	INTEGER(C_INTPTR_T) :: Lx, Ly, Lz
 	INTEGER(C_INTPTR_T) :: ii, jj, kk, dim3
 	INTEGER(C_INTPTR_T) :: local_nx, local_ny, local_nz, alloc_local 

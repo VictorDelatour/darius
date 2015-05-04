@@ -2,7 +2,7 @@ SUBROUTINE FIELDS
 
 	USE DIMENSION, only : nx, ny, nz, low, upp, len  ! Contains dimension-related variables
 	USE MATRIX, only : rho3d, phi3d, gradx, grady, gradz	  ! Contains the variables rho3d and phi3d
-	USE SCALAR, only : i, j, k, gconst, at, ga, pi, store_wisdom
+	USE SCALAR, only : i, j, k, gconst, at, ga, pi, store_wisdom, step
 	USE FFTW
 	USE VAR_MPI
 	
@@ -17,7 +17,7 @@ SUBROUTINE FIELDS
 	REAL*8, DIMENSION(:,:,:), allocatable :: tempstorage, local_data
 	REAL*8 :: temp
 	
-	INTEGER :: ierr, num_procs, my_id, fh_init, fh_rho, fh_phi, ierror, import
+	INTEGER :: fh_init, fh_rho, fh_phi, ierror, import
 	INTEGER :: status(MPI_STATUS_SIZE)
 	INTEGER :: count(1:6), count_rate, count_max
 	INTEGER, DIMENSION(3) :: sizes, subsizes, start
@@ -29,10 +29,6 @@ SUBROUTINE FIELDS
 	TYPE(C_PTR) :: planFOR, planBACK, cdata, cgrad_x, cgrad_y, cgrad_z
 	COMPLEX(C_DOUBLE_COMPLEX), pointer :: data(:,:,:), grad_x(:,:,:), grad_y(:,:,:), grad_z(:,:,:)
 	COMPLEX(C_DOUBLE_COMPLEX), PARAMETER :: icomplex = (0.0,1.0)
-
-	ALLOCATE( gradx(nx, ny, nz) )
-	ALLOCATE( grady(nx, ny, nz) )
-	ALLOCATE( gradz(nx, ny, nz) )
 
 	CALL system_clock(count(1))
 	
@@ -54,7 +50,13 @@ SUBROUTINE FIELDS
 	
 	! Allocate memory to z-slab for MPI
 	alloc_local = fftw_mpi_local_size_3d(nx, ny, nz, MPI_COMM_WORLD, local_nz, local_z_offset)
-	ALLOCATE( subarray(nx, ny, local_nz) )
+	
+	if(step .eq. 0) then
+		ALLOCATE( gradx(nx, ny, nz) )
+		ALLOCATE( grady(nx, ny, nz) )
+		ALLOCATE( gradz(nx, ny, nz) )
+		ALLOCATE( subarray(nx, ny, local_nz) )
+	end if
 	
 	
 	! Allocate memory
@@ -149,8 +151,10 @@ SUBROUTINE FIELDS
 		data(:, :, :) = rho3d(:, :, 1:(nz/num_procs))
 		
 	else
-
-		ALLOCATE( local_data(nx, ny, local_nz))
+		
+		if(step .eq. 0) then
+			ALLOCATE( local_data(nx, ny, local_nz))
+		end if
 		
 		CALL MPI_RECV(local_data(1,1,1), alloc_local, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, status, ierror)
 		data = local_data ! Probably useless?
@@ -220,11 +224,6 @@ SUBROUTINE FIELDS
 			pos(3) = k - nz - 1
 		end if
 		
-! 		if( 2 * (k+local_z_offset) > nz ) then
-! 			pos(3) = k - nz - 1
-! 		else
-! 			pos(3) = k - 1
-! 		end if
 		
 		do j = 1, ny
 			
@@ -234,11 +233,6 @@ SUBROUTINE FIELDS
 				pos(2) = j - ny - 1
 			end if
 			
-! 			if( 2*j > ny ) then
-! 				pos(2) = j - ny - 1
-! 			else
-! 				pos(2) = j - 1
-! 			end if
 			
 			do i = 1, nx
 				
@@ -248,11 +242,7 @@ SUBROUTINE FIELDS
 					pos(1) = i - nx - 1
 				end if
 				
-! 				if( 2*i > nx ) then
-! 					pos(1) = i - nx - 1
-! 				else
-! 					pos(1) = i - 1
-! 				end if
+				
 
  				k2 = p * ( pos(1)**2 + pos(2)**2 + pos(3)**2 ) / (nx*nx)
 				if(k2 /= 0) then
@@ -355,13 +345,9 @@ SUBROUTINE FIELDS
 	end if
 	
 	
-	
 	CALL fftw_destroy_plan(planBACK)
  	CALL fftw_destroy_plan(planFOR)
 	
-	
 	CALL MPI_FINALIZE(ierr)
-	
-	
 	
 END SUBROUTINE FIELDS

@@ -1,12 +1,15 @@
 PROGRAM darius
 
 	USE SCALAR, only : store_wisdom, step
+	USE VAR_MPI, only : num_procs, my_id, ierr
+	USE FFTW
 	
 	
 	IMPLICIT NONE
 	
-    INTEGER :: num_arguments
+    INTEGER :: num_arguments, num_step
   	CHARACTER(len = 32) :: arg
+	
      
 	num_arguments = command_argument_count()
 
@@ -20,17 +23,27 @@ PROGRAM darius
 	   stop 1
 	end if
 	
-	step = 0
+! 	step = 0
+	num_step = 1
+	
+	CALL MPI_INIT(ierr)
+	CALL fftw_mpi_init
+	CALL MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+	CALL MPI_COMM_SIZE(MPI_COMM_WORLD, num_procs, ierr)
 		
-	CALL PART_INIT
-	CALL PROJECT_DENSITY
-	CALL FIELDS
-	CALL UPDATE_PARTICLES
-	CALL PROJECT_DENSITY
+	if(my_id .eq. 0) then	
+		CALL PART_INIT
+	end if
+	
+! 	do step = 0, num_step-1
+! 		write(*, '(a, I5, a)') "Step number ", step, " "
+! 		CALL PROJECT_DENSITY
+! 		CALL FIELDS
+! 		CALL UPDATE_PARTICLES
+! 	end do
+! 	CALL PROJECT_DENSITY
 
-! 	CALL INIT_FIELDS 	! Fields are initialized
-! 	CALL FIELDS 		! Fields are updated
-! 	CALL WRITE_BOV
-! 	CALL WRITE_FIELDS	! Fields are written to a data file for visualization
+	CALL MPI_FINALIZE(ierr)
+
 
 END PROGRAM
