@@ -30,6 +30,7 @@ PROGRAM darius
 	CALL fftw_mpi_init
 	CALL MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
 	CALL MPI_COMM_SIZE(MPI_COMM_WORLD, num_procs, ierr)
+	
 		
 	if(my_id .eq. 0) then	
 		CALL PART_INIT
