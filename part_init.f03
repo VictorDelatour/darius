@@ -1,13 +1,15 @@
 SUBROUTINE PART_INIT
 	
 	USE DIMENSION, only: nx, ny, nz, nparticles
-	USE VECTOR, only: x, y, z, vx, vy, vz, mass
+	USE VECTOR, only: x, y, z, vx, vy, vz, mass, local_x, local_y, local_z, local_vx, local_vy, local_vz,local_mass
 	USE MATRIX, only: rho3d, phi3d
 	USE VAR_MPI, only: num_procs, my_id
+	USE FFTW
 	
 	IMPLICIT NONE
 	
 	INTEGER :: unit_part, unit_info, pos, slab_pos, part_iter_pos, min_level, proc
+	INTEGER :: ierror, send_request
 	CHARACTER(LEN = 128) :: filename, buffer
 	INTEGER, DIMENSION(num_procs) :: part_per_slab, part_iterator
 	INTEGER, DIMENSION(:), ALLOCATABLE :: slab_position
@@ -38,7 +40,7 @@ SUBROUTINE PART_INIT
 		stop
 	end if
 	
-	
+	! Don't need this anymore
 	ALLOCATE( rho3d(nx, ny, nz) )
 	ALLOCATE( phi3d(nx, ny, nz) )
 	
@@ -92,6 +94,10 @@ SUBROUTINE PART_INIT
 		part_per_slab(slab_position(pos)) = part_per_slab(slab_position(pos)) + 1
 	end do
 	
+	do proc = 1, num_procs-1
+		CALL MPI_ISEND(part_per_slab(proc+1), 1, MPI_INT, proc, 1, MPI_COMM_WORLD, proc, ierror)
+	end do
+	
 	
 ! 	if (my_id .eq. 0) then
 ! 		write(*,*) part_per_slab
@@ -118,17 +124,44 @@ SUBROUTINE PART_INIT
 	end do
 	
 	do proc = 1, num_procs
-		write(*,*) proc, part_iterator(proc)
+		write(*,*) proc-1, part_per_slab(proc)
 ! 		write(*,*) part_in_slab(proc, part_iterator(proc))
 ! 		write(*,*) part_in_slab(proc, part_iterator(proc)-1)
 	end do
 	
-! 	do proc = 1, num_procs-1
-!
+	do proc = 1, num_procs-1
+		write(*,'(a I0)') "Sending data to proc", proc
 ! 		CALL MPI_RECV(gradz(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 4, MPI_COMM_WORLD, status, ierror)
-! 		CALL MPI_SEND(part_in_slab(proc, 1:(part_iterator(proc)-1)), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
-!
-! 	end do
+! 		Consider using non-blocking communication
+! ! 		CALL MPI_SEND(part_in_slab(proc, 1:(part_iterator(proc+1)-1)), part_iterator(proc+1)-1, MPI_DOUBLE, proc, 2, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( x(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 2, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( y(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 3, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( z(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 4, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( vx(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 5, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( vy(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 6, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( vz(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 7, MPI_COMM_WORLD, ierror)
+! 		CALL MPI_SEND( mass(part_in_slab(proc+1, 1:(part_iterator(proc+1)-1))) , part_iterator(proc+1)-1, MPI_DOUBLE, proc, 8, MPI_COMM_WORLD, ierror)
+	end do
+	
+! 	ALLOCATE( part_list(part_per_slab(1)))
+	ALLOCATE( local_x(part_per_slab(1)) )
+	ALLOCATE( local_y(part_per_slab(1)) )
+	ALLOCATE( local_z(part_per_slab(1)) )
+	ALLOCATE( local_vx(part_per_slab(1)) )
+	ALLOCATE( local_vy(part_per_slab(1)) )
+	ALLOCATE( local_vz(part_per_slab(1)) )
+	ALLOCATE( local_mass(part_per_slab(1)) )
+	
+	local_x = x(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_y = y(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_z = z(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_vx = vx(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_vy = vy(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_vz = vz(part_in_slab(1, 1:(part_iterator(1)-1)))
+	local_mass = mass(part_in_slab(1, 1:(part_iterator(1)-1)))
+	
+	
+! 	part_list = part_in_slab(proc, 1:(part_iterator(1)-1))
 	
 	
 !

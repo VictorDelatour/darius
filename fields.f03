@@ -296,6 +296,7 @@ SUBROUTINE FIELDS
 	
 	if( my_id .eq. 0) then
 		
+		
 		do i = 1, num_procs-1
 			CALL MPI_RECV(gradx(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, status, ierror)
 			CALL MPI_RECV(grady(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 3, MPI_COMM_WORLD, status, ierror)

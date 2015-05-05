@@ -34,6 +34,8 @@ PROGRAM darius
 		
 	if(my_id .eq. 0) then	
 		CALL PART_INIT
+	else
+		CALL MPI_PART_INIT
 	end if
 	
 ! 	do step = 0, num_step-1
