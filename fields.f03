@@ -145,6 +145,7 @@ SUBROUTINE FIELDS
 	if( my_id .eq. 0) then
 		
 		do i = 1, num_procs-1
+			! Assume wrongly that local size alloc_local is the same for each, which is wrong.
 			CALL MPI_SEND(rho3d(1, 1, 1 + i*nz/num_procs), alloc_local, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, ierror)
 		end do
 		 
@@ -334,14 +335,14 @@ SUBROUTINE FIELDS
 	
 	
 	if(my_id.eq.0) then
-		write(0,'(a, f10.4, a)') 'Initialization = ', dble((count(2)-count(1)))/count_rate, ' s'
-		write(0,'(a, f10.4, a)') 'Forward FFT = ', dble((count(3)-count(2)))/count_rate, ' s'
-		write(0,'(a, f10.4, a)') 'Update = ', dble((count(4)-count(3)))/count_rate, ' s'
-		write(0,'(a, f10.4, a)') 'Backward FFT = ', dble((count(5)-count(4)))/count_rate, ' s'
-		write(0,'(a, f10.4, a)') 'Write = ', dble((count(6)-count(5)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Initialization = ', dble((count(2)-count(1)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Forward FFT = ', dble((count(3)-count(2)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Update = ', dble((count(4)-count(3)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Backward FFT = ', dble((count(5)-count(4)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Write = ', dble((count(6)-count(5)))/count_rate, ' s'
 		
-		write(0,'(a, f10.4, a)') 'Total execution time = ', dble((count(6)-count(1)))/count_rate, ' s'
-		write(0,'(a, f10.4, a)') 'Total computation time = ', dble((count(5)-count(2)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Total execution time = ', dble((count(6)-count(1)))/count_rate, ' s'
+		write(0,'(a, f10.4, a)') '  Total computation time = ', dble((count(5)-count(2)))/count_rate, ' s'
 		
 	end if
 	
